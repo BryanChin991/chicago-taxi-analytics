@@ -252,7 +252,7 @@ Idle time is a common pattern, not an exception
 
 Business value:
 
-Indicates mismatch between supply and demand → opportunity to improve dispatch and driver allocation
+Indicates mismatch between supply and demand → opportunity to improve dispatch and driver allocation.
 
 
 
@@ -303,8 +303,4 @@ To keep the pipeline scalable and production-friendly:
 12\. Dashboard
 
 Public Looker Studio Dashboard: https://lookerstudio.google.com/s/pByrmEDdyjc
-
-
-
-
 
