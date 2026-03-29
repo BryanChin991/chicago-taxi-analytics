@@ -1,0 +1,26 @@
+config {
+  type: "table"
+}
+
+SELECT
+  taxi_id,
+  company,
+  payment_type,
+
+  trip_start_timestamp,
+  trip_end_timestamp,
+  DATE(trip_start_timestamp) AS trip_date,
+
+  trip_seconds,
+  trip_seconds / 3600.0 AS trip_hours,
+  trip_miles,
+
+  fare,
+  tips,
+  trip_total
+
+FROM `bigquery-public-data.chicago_taxi_trips.taxi_trips`
+WHERE 1=1
+  AND taxi_id IS NOT NULL
+  AND trip_start_timestamp IS NOT NULL
+  AND trip_end_timestamp IS NOT NULL

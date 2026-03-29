@@ -1,0 +1,86 @@
+/*
+Purpose:
+- Compare trip demand across weekdays, weekends, and selected US public holidays
+- Evaluate how demand changes during non-working or special periods
+
+Note:
+- Public holidays include selected US holidays (New Year, Labor Day, Independence Day, Thanksgiving, Christmas)
+- This is not an exhaustive list
+*/
+
+config {
+  type: "table"
+}
+
+WITH daily_trips AS (
+  SELECT
+    trip_date,
+    COUNT(*) AS total_trips
+  FROM ${ref("stg_trips")}
+  GROUP BY trip_date
+),
+
+date_spine AS (
+  SELECT day AS trip_date
+  FROM UNNEST(GENERATE_DATE_ARRAY('2013-01-01', '2023-12-31')) AS day
+),
+
+us_holidays AS (
+  SELECT
+    trip_date,
+    -- Identify selected US public holidays (not exhaustive)
+    CASE
+      WHEN FORMAT_DATE('%m-%d', trip_date) = '01-01' THEN 'New Year'
+      WHEN FORMAT_DATE('%m-%d', trip_date) = '07-04' THEN 'Independence Day'
+      WHEN FORMAT_DATE('%m-%d', trip_date) = '12-25' THEN 'Christmas'
+      WHEN EXTRACT(MONTH FROM trip_date) = 11
+        AND EXTRACT(DAYOFWEEK FROM trip_date) = 5
+        AND EXTRACT(DAY FROM trip_date) BETWEEN 22 AND 28
+        THEN 'Thanksgiving'
+      WHEN EXTRACT(MONTH FROM trip_date) = 9
+        AND EXTRACT(DAYOFWEEK FROM trip_date) = 2
+        AND EXTRACT(DAY FROM trip_date) <= 7
+        THEN 'Labor Day'
+      ELSE NULL
+    END AS holiday_name
+  FROM date_spine
+)
+
+SELECT
+  d.trip_date,
+  DATE_TRUNC(d.trip_date, YEAR) AS trip_year,
+  DATE_TRUNC(d.trip_date, QUARTER) AS trip_quarter,
+  DATE_TRUNC(d.trip_date, MONTH) AS trip_month,
+  EXTRACT(YEAR FROM d.trip_date) AS year,
+  EXTRACT(QUARTER FROM d.trip_date) AS quarter,
+  EXTRACT(MONTH FROM d.trip_date) AS month,
+  FORMAT_DATE('%Y-%m', d.trip_date) AS year_month,
+  FORMAT_DATE('%Y-Q%Q', d.trip_date) AS year_quarter,
+  FORMAT_DATE('%A', d.trip_date) AS day_name,
+  EXTRACT(DAYOFWEEK FROM d.trip_date) AS day_of_week,
+  d.total_trips,
+  h.holiday_name,
+
+-- Identify holiday date
+  CASE
+    WHEN h.holiday_name IS NOT NULL THEN 'Holiday'
+    ELSE 'Non-Holiday'
+  END AS holiday_flag,
+
+-- Identify Weekend
+  CASE
+    WHEN EXTRACT(DAYOFWEEK FROM d.trip_date) IN (1, 7) THEN 'Weekend'
+    ELSE 'Weekday'
+  END AS weekend_flag,
+
+-- day type tag
+  CASE
+    WHEN h.holiday_name IS NOT NULL THEN 'Holiday'
+    WHEN EXTRACT(DAYOFWEEK FROM d.trip_date) IN (1, 7) THEN 'Weekend'
+    ELSE 'Weekday'
+  END AS day_type
+
+FROM daily_trips d
+LEFT JOIN us_holidays h
+  ON d.trip_date = h.trip_date
+ORDER BY d.trip_date

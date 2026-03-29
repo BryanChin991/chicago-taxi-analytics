@@ -1,0 +1,70 @@
+/*
+Purpose:
+- Measure how much time drivers spend without trips within a working day
+- Group driver activity into idle time buckets (0–24 hours)
+
+Approach:
+- Define a driver’s daily shift as the time between first trip start and last trip end
+- Calculate active trip time using total trip duration
+- Estimate idle time as: shift hours – active trip hours
+- Bucket idle time into hourly groups for distribution analysis
+
+Note:
+- Idle time is based on gaps between trips and may include breaks or off-platform periods
+- It should be interpreted as a proxy for inefficiency, not exact waiting time
+*/
+
+config {
+  type: "table"
+}
+
+WITH daily_shifts AS (
+  SELECT
+    taxi_id,
+    company,
+    trip_date,
+
+    MIN(trip_start_timestamp) AS shift_start,
+    MAX(trip_end_timestamp) AS shift_end,
+
+    TIMESTAMP_DIFF(
+      MAX(trip_end_timestamp),
+      MIN(trip_start_timestamp),
+      MINUTE
+    ) / 60.0 AS shift_hours,
+
+    SUM(trip_seconds) / 3600.0 AS active_trip_hours
+
+  FROM ${ref("stg_trips")}
+  GROUP BY taxi_id, company, trip_date
+),
+
+idle_calc AS (
+  SELECT
+    *,
+    GREATEST(shift_hours - active_trip_hours, 0) AS idle_hours
+  FROM daily_shifts
+),
+
+bucketed AS (
+  SELECT
+    trip_date,
+    taxi_id,
+    company,
+    idle_hours,
+
+    -- Round to nearest integer hour (0–24)
+    CAST(FLOOR(idle_hours) AS INT64) AS idle_hour_bucket
+
+  FROM idle_calc
+  WHERE idle_hours IS NOT NULL
+)
+
+SELECT
+  CONCAT(CAST(idle_hour_bucket AS STRING), ' hr') AS idle_hour_label,
+  CAST(idle_hour_bucket AS INT) AS idle_hour_sort,
+  COUNT(DISTINCT CONCAT(taxi_id, CAST(trip_date AS STRING))) AS driver_day_count
+FROM bucketed
+WHERE idle_hour_bucket BETWEEN 0 AND 24
+GROUP BY idle_hour_bucket
+ORDER BY idle_hour_bucket

@@ -1,0 +1,35 @@
+/*
+Definition
+
+Drivers (taxi_id) with the highest total tips over the last 3 months.
+
+Approach
+Anchored analysis on the latest available trip date in the dataset
+Selected trips within the last 3 months
+Aggregated total tips per taxi_id
+Assumption
+
+The 3-month window is defined relative to the latest available data rather than system date, to avoid bias from delayed data refresh.
+*/
+
+
+config {
+  type: "table"
+}
+
+WITH max_date AS (
+  -- get the latest available date
+  SELECT MAX(trip_date) AS max_trip_date
+  FROM ${ref("stg_trips")}
+)
+
+SELECT
+  t.taxi_id,
+  SUM(t.tips) AS total_tips
+FROM ${ref("stg_trips")} t
+  CROSS JOIN max_date m
+WHERE 1=1
+  AND t.trip_date >= DATE_SUB(m.max_trip_date, INTERVAL 3 MONTH) -- last 3 months of latest available date
+GROUP BY t.taxi_id
+ORDER BY total_tips DESC
+LIMIT 100

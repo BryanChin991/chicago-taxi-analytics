@@ -1,0 +1,44 @@
+/*
+Purpose:
+- Compare tipping behavior across different payment types
+- Understand how tipping changed before and after 2020
+
+Approach:
+- Group trips by company and payment type
+- Split data into two periods: before 2020 and after 2020
+- Calculate key metrics such as total trips, total tips, and tips per trip
+
+Note:
+- Tips per trip is used as a proxy to compare tipping behavior across payment methods
+- The year split is used to capture changes in behavior after 2020
+*/
+
+config {
+  type: "table"
+}
+
+
+SELECT 
+company,
+payment_type,
+  CASE 
+    WHEN EXTRACT(YEAR FROM trip_start_timestamp) <= 2019 THEN 'Before 2020'
+    ELSE 'After 2020'
+  END AS year_bucket,
+    
+  -- DATE(trip_start_timestamp) AS trip_date,
+  -- EXTRACT(YEAR FROM trip_start_timestamp) AS year,
+  -- EXTRACT(MONTH FROM trip_start_timestamp) AS month,
+  COUNT(*) AS total_trips,
+  SUM(trip_total) as total_cost_trip,
+  SUM(fare) as fare,
+  SUM(tips) as tips,
+  COUNT(DISTINCT taxi_id) AS taxi_id,
+
+  SAFE_DIVIDE(SUM(trip_total), COUNT(*)) AS AOV,
+  SAFE_DIVIDE(SUM(tips), COUNT(*)) AS tips_per_trip
+
+FROM ${ref("stg_trips")}
+GROUP BY company, payment_type, year_bucket
+ORDER BY total_trips DESC
+-- LIMIT 10

@@ -1,0 +1,140 @@
+/*
+Definition:
+Overworkers are taxi IDs that show repeated signs of prolonged working patterns,
+short breaks between shifts (less than 8 hours), meaningful active driving time,
+and limited idle time within the daily shift window.
+
+Assumptions:
+1. A driver's daily shift is approximated as the period from the first trip start
+   to the last trip end on a given trip_date.
+2. Rest time is approximated as the gap between the previous observed shift end
+   and the next observed shift start for the same taxi_id.
+3. Because no explicit driver attendance or login/logout data is available,
+   this model uses trip activity as a proxy for work patterns.
+
+Criteria:
+1. Long shift day:
+   Daily working window (first trip start to last trip end) is at least 8 hours.
+2. Short break:
+   Gap between previous shift end and next shift start is less than 8 hours.
+3. Meaningful active work:
+   Average daily active trip time is at least 4 hours.
+4. Limited idle time:
+   Average daily idle time within the shift window is less than 8 hours.
+5. Sufficient observation history:
+   Taxi ID must have at least 20 observed working days to support a stable pattern-based classification.
+
+Ranking logic:
+Qualified taxi IDs are ranked by:
+1. Total shift hours
+2. Frequency of long-shift days
+3. Frequency of short breaks
+4. Average active trip hours
+5. Lower average idle hours
+*/
+
+
+config {
+  type: "table"
+}
+
+WITH daily_shifts AS (
+  SELECT
+    taxi_id,
+    trip_date,
+    MIN(trip_start_timestamp) AS shift_start,
+    MAX(trip_end_timestamp) AS shift_end,
+
+    -- Shift duration = latest trip end − earliest trip start
+    TIMESTAMP_DIFF(
+      MAX(trip_end_timestamp),
+      MIN(trip_start_timestamp),
+      MINUTE
+    ) / 60.0 AS shift_hours,
+
+    SUM(trip_hours) AS active_trip_hours,
+
+    -- Idle time = shift duration − active time
+    GREATEST(
+      TIMESTAMP_DIFF(
+        MAX(trip_end_timestamp),
+        MIN(trip_start_timestamp),
+        MINUTE
+      ) / 60.0 - SUM(trip_hours),
+      0
+    ) AS idle_hours_within_day
+
+  FROM ${ref("stg_trips")}
+  GROUP BY taxi_id, trip_date
+),
+
+shift_breaks AS (
+  SELECT
+    taxi_id,
+    trip_date,
+    shift_start,
+    shift_end,
+    shift_hours,
+    active_trip_hours,
+    idle_hours_within_day,
+
+    -- Break = time between previous shift end and current shift start
+    TIMESTAMP_DIFF(
+      shift_start,
+      LAG(shift_end) OVER (
+        PARTITION BY taxi_id
+        ORDER BY trip_date
+      ),
+      MINUTE
+    ) / 60.0 AS break_hours
+
+  FROM daily_shifts
+),
+
+driver_summary AS (
+  SELECT
+    taxi_id,
+    COUNT(DISTINCT trip_date) AS total_working_days,
+    SUM(shift_hours) AS total_shift_hours,
+    AVG(shift_hours) AS avg_shift_hours,
+    SUM(active_trip_hours) AS total_active_trip_hours,
+    AVG(active_trip_hours) AS avg_active_trip_hours,
+    AVG(idle_hours_within_day) AS avg_idle_hours_within_day,
+
+    -- calculate driver-level overwork metrics
+    COUNTIF(shift_hours >= 8 ) AS long_shift_days,
+    SAFE_DIVIDE(COUNTIF(shift_hours >= 8), COUNT(DISTINCT trip_date)) AS long_shift_day_ratio,
+
+    COUNTIF(break_hours < 8 AND break_hours IS NOT NULL) AS short_break_days,
+    SAFE_DIVIDE(COUNTIF(break_hours < 8 AND break_hours IS NOT NULL), COUNTIF(break_hours IS NOT NULL)) AS short_break_ratio
+
+  FROM shift_breaks
+  GROUP BY taxi_id
+)
+
+SELECT
+  taxi_id,
+  total_working_days,
+  ROUND(total_shift_hours, 1) AS total_shift_hours,
+  ROUND(avg_shift_hours, 1) AS avg_shift_hours,
+  long_shift_days,
+  ROUND(long_shift_day_ratio, 2) AS long_shift_day_ratio,
+  short_break_days,
+  ROUND(short_break_ratio, 2) AS short_break_ratio,
+  ROUND(avg_active_trip_hours, 1) AS avg_active_trip_hours,
+  ROUND(avg_idle_hours_within_day, 1) AS avg_idle_hours_within_day
+ 
+FROM driver_summary
+WHERE 1=1
+  AND total_working_days >= 20
+  -- AND long_shift_day_ratio >= 0.5
+  -- AND short_break_ratio >= 0.5
+  AND avg_active_trip_hours >= 4
+  AND avg_idle_hours_within_day < 8
+ORDER BY
+  total_shift_hours DESC,
+  long_shift_day_ratio DESC,
+  short_break_ratio DESC,
+  avg_active_trip_hours DESC,
+  avg_idle_hours_within_day ASC
+LIMIT 100
