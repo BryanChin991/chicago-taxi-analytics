@@ -302,5 +302,5 @@ To keep the pipeline scalable and production-friendly:
 
 12\. Dashboard
 
-Public Looker Studio Dashboard: https://lookerstudio.google.com/s/pByrmEDdyjc
+Public Looker Studio Dashboard: https://lookerstudio.google.com/s/uEB3YE0REv0
 

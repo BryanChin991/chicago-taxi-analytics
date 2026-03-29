@@ -83,4 +83,6 @@ SELECT
 FROM daily_trips d
 LEFT JOIN us_holidays h
   ON d.trip_date = h.trip_date
+WHERE 1=1
+  -- AND EXTRACT(YEAR FROM d.trip_date) BETWEEN 2019 AND 2023
 ORDER BY d.trip_date
