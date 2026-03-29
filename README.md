@@ -151,7 +151,7 @@ git remote add origin <your_github_repo_url>
 git add .
 git commit -m "Initial commit - Dataform project"
 git push -u origin main
-
+```
 Why GitHub is Required
 
 Even though development is done in GCP:
