@@ -182,7 +182,7 @@ git init
 git remote add origin <your_github_repo_url>
 
 git add .
-git commit -m "Initial commit - Dataform project"
+git remote add origin https://github.com/bryanchin/chicago-taxi-project.git
 git push -u origin main
 ```
 
