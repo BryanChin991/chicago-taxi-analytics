@@ -1,30 +1,29 @@
+
 # Chicago Taxi Trips — Data Analytics Engineering Project
 
----
+## 1. Overview
+This project transforms raw Chicago taxi trip data into structured insights using a scalable data pipeline built on Google Cloud Platform.
 
-## 1. Objective
-
-Design and implement a **production-ready data pipeline** on Google Cloud Platform to transform raw taxi trip data into structured analytical models that support business decision-making.
-
-This project demonstrates how raw data can be cleaned, modeled, and translated into **actionable insights** using a simple and scalable approach.
+The pipeline demonstrates how raw data can be cleaned, modeled, and translated into actionable insights for decision-making.
 
 ---
 
-## 2. Architecture Overview
-BigQuery (Raw Public Dataset)
-↓
-Dataform (Transformation Layer)
-↓
-Curated Analytical Tables
-↓
-Looker Studio Dashboard
+## 2. Architecture
+Data flows through the following layers:
 
+BigQuery (Raw Public Dataset)  
+↓  
+Dataform (Transformation Layer)  
+↓  
+Curated Analytical Tables  
+↓  
+Looker Studio Dashboard  
 
+Raw trip-level data is processed in BigQuery, transformed using Dataform, and exposed as analytical tables for visualization.
 
 ---
 
 ## 3. Technology Stack
-
 - **Data Warehouse:** Google BigQuery  
 - **Transformation:** GCP Dataform  
 - **Visualization:** Looker Studio  
@@ -32,118 +31,152 @@ Looker Studio Dashboard
 ---
 
 ## 4. Dataset
-
 - **Source:** `bigquery-public-data.chicago_taxi_trips.taxi_trips`  
 - **Granularity:** Trip-level  
 
 **Key fields:**
-- `taxi_id`
-- `trip_start_timestamp`, `trip_end_timestamp`
-- `trip_seconds`
-- `fare`, `tips`, `trip_total`
-- `company`, `payment_type`
+- `taxi_id`  
+- `trip_start_timestamp`, `trip_end_timestamp`  
+- `trip_seconds`  
+- `fare`, `tips`, `trip_total`  
+- `company`, `payment_type`  
 
 ---
 
 ## 5. Data Modeling Approach
-
-A simple **layered approach** is used to keep the pipeline easy to maintain and extend.
+A layered modeling approach is used to ensure clarity, reusability, and scalability.
 
 ### 5.1 Staging Layer (`stg_trips`)
-
 - Cleans and standardizes raw data  
 - Converts trip duration into hours  
 - Extracts date fields for analysis  
-- Filters out invalid records (e.g. null `taxi_id`)  
-
----
+- Filters invalid records (e.g. null `taxi_id`)  
 
 ### 5.2 Analytical Models
 
 #### `top_tip_earners.sqlx`
-- Identifies top 100 drivers based on total tips in the most recent 3 months  
-- Uses latest available data to avoid bias from incomplete periods  
+Identifies the top 100 drivers based on total tips in the most recent 3 months.
+
+- Uses latest available data to avoid incomplete period bias  
+
+---
 
 #### `overworkers.sqlx`
-- Detects drivers with consistently long working patterns  
-- Combines multiple signals:
-  - Long shift duration  
-  - Short rest between shifts  
-  - Active driving hours  
-  - Idle time within shifts  
+Identifies drivers with potentially unsustainable working patterns based on:
+
+- Long shift duration  
+- Short rest between shifts  
+- Meaningful active driving time (≥ 4 hours/day)  
+- Limited idle time within shifts (< 8 hours/day)  
+
+---
 
 #### `public_holiday.sqlx`
-- Compares trip demand across:
-  - Weekdays  
-  - Weekends  
-  - Public holidays (selected US holidays)  
-- Evaluates demand shifts during special periods  
+Compares trip demand across:
+
+- Weekdays  
+- Weekends  
+- Selected US public holidays  
+
+Used to evaluate demand shifts during special periods.
+
+---
 
 #### `idle_distribution.sqlx`
-- Measures how much time drivers spend without trips within a working day  
-- Groups driver-day observations into idle hourly buckets  
+Bonus Insight 1: Measures driver idle time within a working day.
+
+- Breaks idle time into hourly buckets  
+- Aggregates driver-day observations  
 - Highlights operational inefficiencies  
 
+---
+
 #### `tipping.sqlx`
-- Compares tipping behavior across payment types  
+Bonus Insight 2: Analyzes tipping behavior across payment types.
+
 - Splits analysis into:
-  - Before 2020  
+  - Before 2020 (pre-COVID)
   - After 2020  
 - Evaluates impact of digital payment adoption  
 
 ---
 
-## 6. Data Pipeline Execution
+## 6. Key Insights
 
-All models are built using **Dataform** and executed in **BigQuery**.
+### 6.1 Idle Time is Structurally High
+- Many drivers spend **5–8 hours per day idle**  
+- Idle time is a consistent pattern across driver-days  
 
-**Key practices applied:**
-- Modular models using `ref()`  
-- Clear separation between staging and analytical layers  
-- Readable and maintainable SQL  
+**Business value:**
+- Indicates supply-demand imbalance  
+- Opportunity to improve dispatch and driver allocation  
 
 ---
 
-## 7. Setup Instructions
+### 6.2 Digital Payments Drive Higher Tips
+- Credit card trips generate higher tips  
+- Tipping increased after 2020  
 
-### 7.1 Google Cloud Setup
+**Business value:**
+- Encouraging digital payments improves driver earnings  
+- Supports platform monetization  
 
-- Create a **GCP project**  
-- Enable **BigQuery**  
+---
+
+## 7. Assumptions & Limitations
+- Trip data is used as a proxy for driver behavior  
+- No direct driver login/logout data is available  
+- Public holiday list is not exhaustive  
+- Idle time may include breaks or off-platform time
+  
+---
+
+## 8. Data Pipeline Execution
+All models are built and executed using Dataform on BigQuery.
+
+**Key practices applied:**
+- Modular model design using `ref()`  
+- Clear separation between staging and analytical layers  
+- Readable and maintainable SQL structure  
+
+---
+
+## 9. Engineering Considerations
+- **Data freshness control:** Uses latest available dataset instead of system time  
+- **Efficiency:** Avoids unnecessary recomputation  
+- **Reusability:** Staging layer ensures consistent downstream usage  
+
+---
+
+## 10. Setup Instructions
+
+### 10.1. Google Cloud Setup
+- Create a GCP project  
+- Enable BigQuery  
 - Create dataset: `chicago_taxi_analysis`  
 
 ---
 
-### 7.2 Dataform Setup
-
-- Create a **Dataform repository**  
+### 10.2. Dataform Setup
+- Create a Dataform repository  
 - Configure default dataset  
 - Add models:
-  - `stg_trips`
-  - `top_tip_earners`
-  - `overworkers`
-  - `public_holiday`
-  - `idle_distribution`
-  - `tipping`
-
-- Run the workflow to build tables  
+  - `stg_trips`  
+  - `top_tip_earners`  
+  - `overworkers`  
+  - `public_holiday`  
+  - `idle_distribution`  
+  - `tipping`  
+- Run workflow to build tables  
 
 ---
 
-### 7.3 Push Project from GCP (Dataform) to GitHub
+### 10.3. Push Project to GitHub
 
-Since Dataform runs inside GCP, code needs to be exported to **GitHub** for submission.
+The project was developed in Dataform within Google Cloud, which is not directly shareable outside the platform.  
+To make the project accessible and meet submission requirements, the code was uploaded to GitHub.
 
-#### Option A — Direct Git Integration
-
-1. Open Dataform repository  
-2. Go to **Settings → Git**  
-3. Connect to your GitHub account  
-4. Link to your repository  
-5. Commit and push changes  
-
-#### Option B — Manual Push
-
+#### Approach Used: Manual Git Push
 ```bash
 git init
 git remote add origin <your_github_repo_url>
@@ -152,71 +185,20 @@ git add .
 git commit -m "Initial commit - Dataform project"
 git push -u origin main
 ```
-Why GitHub is Required
 
-Even though development is done in GCP:
+### Challenges Faced
+- It was initially unclear how to access and export the project files from Dataform in GCP
+- Setting up the Git repository (e.g. linking to GitHub, managing branches) required some trial and error
+- Managing updates after making changes to SQLX files and the README required understanding how Git tracks changes
 
-GCP environment is not directly shareable
-The requirement explicitly asks for a Git repository
+### Reason for Manual Push
+- Provides better control over when and how changes are saved
+- Makes it easier to track updates through version history
+- Ensures the project is properly structured and ready for review on GitHu
 
-GitHub provides:
+---
 
-Version control (commit history)
-Transparency of development process
-Easy access for reviewers
-8. Visualization
-Connect Looker Studio to BigQuery
-Build dashboard using analytical tables
-9. Analytical Questions & Approach
-9.1 Top Tip Earners
+## 11. Dashboard
 
-Drivers are ranked based on total tips earned over the latest 3-month window.
-
-Why it matters:
-Helps identify high-performing drivers and understand earning concentration.
-
-9.2 Overworkers
-
-Drivers are identified based on repeated long working hours and short breaks (< 8 hours).
-
-Why it matters:
-Supports workforce planning and sustainability.
-
-9.3 Impact of Public Holidays
-
-Trip volume is compared across holidays, weekends, and weekdays.
-
-Why it matters:
-Guides demand forecasting and supply planning.
-
-9.4 Additional Insights
-Insight 1: Idle Time is Structurally High
-Many drivers spend 5–8 hours per day without trips
-Idle time is a consistent pattern
-
-Business value:
-Indicates supply-demand mismatch and opportunity to improve dispatch and driver allocation
-
-Insight 2: Digital Payments Drive Higher Tips
-Credit card usage results in higher tips per trip
-Tipping increased after 2020
-
-Business value:
-Encouraging digital payments can improve driver earnings and platform monetization
-
-10. Engineering Considerations
-Data freshness control
-Uses latest available dataset instead of system time
-Efficient processing
-Avoids unnecessary recomputation
-Reusability
-Staging layer ensures consistent downstream usage
-11. Assumptions & Limitations
-Trip data is used as a proxy for driver behavior
-No direct login/logout data is available
-Public holidays are not exhaustive
-Idle time includes breaks and off-platform time
-12. Dashboard
-
-Public Looker Studio Dashboard:
-https://lookerstudio.google.com/s/uEB3YE0REv0
+**Public Looker Studio Dashboard:**  
+https://lookerstudio.google.com/s/uEB3YE0REv0  
