@@ -201,4 +201,4 @@ git push -u origin main
 ## 11. Dashboard
 
 **Public Looker Studio Dashboard:**  
-https://lookerstudio.google.com/s/uEB3YE0REv0  
+https://lookerstudio.google.com/reporting/b7f7b021-6e9d-4efc-84ec-ca20f01ee331
