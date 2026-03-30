@@ -179,10 +179,10 @@ To make the project accessible and meet submission requirements, the code was up
 #### Approach Used: Manual Git Push
 ```bash
 git init
-git remote add origin <your_github_repo_url>
+git remote add origin https://github.com/BryanChin991/chicago-taxi-analytics.git
 
 git add .
-git remote add origin https://github.com/bryanchin/chicago-taxi-project.git
+git commit -m "Initial commit - Dataform project"
 git push -u origin main
 ```
 
